@@ -45,7 +45,7 @@ public class SensorStreamService extends Service implements SensorEventListener 
         return START_STICKY;
     }
     private String read(String property){
-        Process p=null;
+        java.lang.Process p=null;
         try{
             p=new ProcessBuilder("su","-c","/vendor/bin/vehicle-hal-tool -p "+property+" --get").redirectErrorStream(true).start();
             BufferedReader br=new BufferedReader(new InputStreamReader(p.getInputStream()));
