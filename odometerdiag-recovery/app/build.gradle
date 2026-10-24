@@ -1,0 +1,12 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'ack48.monjarodev.odometerdiag.recovery'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'ack48.monjarodev.odometerdiag.recovery'
+        minSdk 23
+        targetSdk 28
+        versionCode 20
+        versionName '2.0-recovery'
+    }
+}
