@@ -225,7 +225,7 @@ public class MainActivity extends Activity {
                         Throwable t=e instanceof java.lang.reflect.InvocationTargetException?((java.lang.reflect.InvocationTargetException)e).getTargetException():e;
                         result.append("UNAVAILABLE: ").append(t.getClass().getSimpleName()).append(": ").append(t.getMessage());
                     }
-                    result.append('\\n');
+                    result.append('\n');
                 }
             }catch(Exception e){result.append("Car API error: ").append(e.toString());}
             return result.toString();
