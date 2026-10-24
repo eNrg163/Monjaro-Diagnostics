@@ -15,6 +15,7 @@ public class SensorStreamService extends Service implements SensorEventListener 
     private DatagramSocket socket;
     private InetAddress target;
     private volatile boolean active;
+    private Thread discoveryThread;
     private volatile float gx,gy,gz,ax,ay,az;
     private volatile long gyroNs,accelNs;
     private volatile String speed="",steer="",gear="";
@@ -28,8 +29,9 @@ public class SensorStreamService extends Service implements SensorEventListener 
         if(intent==null)return START_NOT_STICKY;
         if("STOP".equals(intent.getAction())){stopSelf();return START_NOT_STICKY;}
         String ip=intent.getStringExtra("phone_ip");
-        if(ip==null||!ip.matches("(\\d{1,3}\\.){3}\\d{1,3}")){stopSelf();return START_NOT_STICKY;}
-        try{target=InetAddress.getByName(ip);socket=new DatagramSocket();}catch(Exception e){stopSelf();return START_NOT_STICKY;}
+        if(ip==null||(!"AUTO".equals(ip)&&!ip.matches("(\\d{1,3}\\.){3}\\d{1,3}"))){stopSelf();return START_NOT_STICKY;}
+        try{if(!"AUTO".equals(ip))target=InetAddress.getByName(ip);socket=new DatagramSocket();}catch(Exception e){stopSelf();return START_NOT_STICKY;}
+        if("AUTO".equals(ip))startDiscovery();
         if(active)return START_STICKY;
         active=true;
         Sensor gyro=sensors.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
@@ -44,6 +46,26 @@ public class SensorStreamService extends Service implements SensorEventListener 
         },0,500,TimeUnit.MILLISECONDS);
         worker.scheduleAtFixedRate(()->send(),0,20,TimeUnit.MILLISECONDS);
         return START_STICKY;
+    }
+    private void startDiscovery(){
+        discoveryThread=new Thread(()->{
+            try(DatagramSocket receiver=new DatagramSocket(null)){
+                receiver.setReuseAddress(true);
+                receiver.bind(new InetSocketAddress(49558));
+                receiver.setSoTimeout(2000);
+                byte[] buf=new byte[128];
+                while(active){
+                    try{
+                        DatagramPacket packet=new DatagramPacket(buf,buf.length);
+                        receiver.receive(packet);
+                        String beacon=new String(packet.getData(),packet.getOffset(),packet.getLength(),"UTF-8");
+                        if("MONJARO_SENSOR_PHONE_V1".equals(beacon)&&packet.getAddress().isSiteLocalAddress())target=packet.getAddress();
+                    }catch(SocketTimeoutException ignored){}
+                }
+            }catch(Exception ignored){}
+        },"monjaro-phone-discovery");
+        discoveryThread.setDaemon(true);
+        discoveryThread.start();
     }
     private String read(String property){
         java.lang.Process p=null;
@@ -83,6 +105,7 @@ public class SensorStreamService extends Service implements SensorEventListener 
         if(sensors!=null)sensors.unregisterListener(this);
         worker.shutdownNow();
         if(socket!=null)socket.close();
+        if(discoveryThread!=null)discoveryThread.interrupt();
         super.onDestroy();
     }
     @Override public IBinder onBind(Intent i){return null;}
