@@ -6,6 +6,12 @@ import android.os.StrictMode;
 import android.widget.TextView;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.ImageView;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.MultiFormatWriter;
+import com.google.zxing.common.BitMatrix;
 import android.view.View;
 import android.graphics.Typeface;
 import android.content.Context;
@@ -25,6 +31,8 @@ public class MainActivity extends Activity {
     private ServerSocket server;
     private final ExecutorService workers = Executors.newFixedThreadPool(3);
     private TextView status;
+    private ImageView qrView;
+    private String qrAddress = "";
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
@@ -35,6 +43,10 @@ public class MainActivity extends Activity {
         status.setTextSize(19);
         status.setTypeface(Typeface.MONOSPACE);
         root.addView(status);
+        qrView=new ImageView(this);
+        LinearLayout.LayoutParams qrParams=new LinearLayout.LayoutParams(280,280);
+        qrParams.topMargin=12;
+        root.addView(qrView,qrParams);
         approveButton=new Button(this);
         approveButton.setText("ALLOW PHONE CONNECTION");
         approveButton.setVisibility(View.GONE);
@@ -54,12 +66,23 @@ public class MainActivity extends Activity {
     }
     private void updateStatus(String state) {
         runOnUiThread(() -> {
-            status.setText("MONJARO DIAG Recovery 2.2\\n\\n"+state+
+            status.setText("MONJARO DIAG Recovery 2.3\\n\\n"+state+
                 "\\n\\nPhone address: http://"+ip()+":"+PORT+"/"+
                 "\\n\\nApproved phone: "+(approvedIp==null?"none":approvedIp)+
                 "\\nWaiting: "+(pendingIp==null?"none":pendingIp)+
                 "\\n\\nApprove the connection on this screen. ROOT is requested by SuperSU when a command runs.");
             approveButton.setVisibility(pendingIp==null?View.GONE:View.VISIBLE);
+            String url="http://"+ip()+":"+PORT+"/";
+            if(!url.equals(qrAddress)) {
+                qrAddress=url;
+                try {
+                    BitMatrix matrix=new MultiFormatWriter().encode(url,BarcodeFormat.QR_CODE,300,300);
+                    Bitmap bitmap=Bitmap.createBitmap(300,300,Bitmap.Config.ARGB_8888);
+                    for(int y=0;y<300;y++)for(int x=0;x<300;x++)
+                        bitmap.setPixel(x,y,matrix.get(x,y)?Color.BLACK:Color.WHITE);
+                    qrView.setImageBitmap(bitmap);
+                }catch(Exception e){status.append("\\nQR error: "+e.getMessage());}
+            }
         });
     }
     private String ip() {
@@ -94,7 +117,7 @@ public class MainActivity extends Activity {
     private String page() {
         return "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><meta charset='utf-8'>"+
           "<style>body{background:#101820;color:#eaf1f5;font:16px sans-serif;margin:20px}textarea{width:100%;height:150px;box-sizing:border-box;background:#1b2934;color:white;padding:12px;font:15px monospace}button{padding:14px;margin:8px 4px;background:#26a6a0;border:0;border-radius:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#18232d;padding:14px}</style></head><body>"+
-          "<h2>Monjaro DIAG 2.2</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
+          "<h2>Monjaro DIAG 2.3</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
           "<textarea id='cmd' placeholder='id'></textarea><br><button onclick='paste()'>Paste</button><button onclick='run()'>Execute</button>"+
           "<button onclick='copy()'>Copy result</button><pre id='out'></pre>"+
           "<script>"+
