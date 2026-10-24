@@ -70,13 +70,14 @@ public class MainActivity extends Activity {
         root.addView(revokeButton);
         sensorTarget=new EditText(this);
         sensorTarget.setSingleLine(true);
-        sensorTarget.setHint("Phone Wi-Fi IP (e.g. 10.158.140.216)");
+        sensorTarget.setHint("Phone IP (leave empty for AUTO discovery)");
         root.addView(sensorTarget);
         Button startSensors=new Button(this);
         startSensors.setText("START SENSOR STREAM");
         startSensors.setOnClickListener(v -> {
             String target=sensorTarget.getText().toString().trim();
-            if(!target.matches("(\\d{1,3}\\.){3}\\d{1,3}")){updateStatus("Invalid phone IP");return;}
+            if(target.isEmpty())target="AUTO";
+            if(!"AUTO".equals(target)&&!target.matches("(\\d{1,3}\\.){3}\\d{1,3}")){updateStatus("Invalid phone IP");return;}
             Intent i=new Intent(this,SensorStreamService.class);
             i.putExtra("phone_ip",target);
             startService(i);
@@ -96,7 +97,7 @@ public class MainActivity extends Activity {
     }
     private void updateStatus(String state) {
         runOnUiThread(() -> {
-            status.setText("MONJARO DIAG Recovery 2.5\\n\\n"+state+
+            status.setText("MONJARO DIAG Recovery 2.6\\n\\n"+state+
                 "\\n\\nPhone address: http://"+ip()+":"+PORT+"/"+
                 "\\n\\nApproved phone: "+(approvedIp==null?"none":approvedIp)+
                 "\\nWaiting: "+(pendingIp==null?"none":pendingIp)+
@@ -147,7 +148,7 @@ public class MainActivity extends Activity {
     private String page() {
         return "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><meta charset='utf-8'>"+
           "<style>body{background:#101820;color:#eaf1f5;font:16px sans-serif;margin:20px}textarea{width:100%;height:150px;box-sizing:border-box;background:#1b2934;color:white;padding:12px;font:15px monospace}button{padding:14px;margin:8px 4px;background:#26a6a0;border:0;border-radius:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#18232d;padding:14px}</style></head><body>"+
-          "<h2>Monjaro DIAG 2.5</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
+          "<h2>Monjaro DIAG 2.6</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
           "<textarea id='cmd' placeholder='id'></textarea><br><button onclick='paste()'>Paste</button><button onclick='run()'>Execute</button>"+
           "<button onclick='copy()'>Copy result</button><pre id='out'></pre>"+
           "<hr><h3>Vehicle sensors (read only)</h3><button onclick='sensors()'>Read sensors</button><button onclick='toggleSensors()' id='auto'>Auto refresh: OFF</button><pre id='sensors'>Press Read sensors. Values are raw; units and scale unverified.</pre>"+
