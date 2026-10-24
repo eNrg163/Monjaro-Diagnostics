@@ -30,8 +30,15 @@ public class SensorStreamService extends Service implements SensorEventListener 
         if("STOP".equals(intent.getAction())){stopSelf();return START_NOT_STICKY;}
         String ip=intent.getStringExtra("phone_ip");
         if(ip==null||(!"AUTO".equals(ip)&&!ip.matches("(\\d{1,3}\\.){3}\\d{1,3}"))){stopSelf();return START_NOT_STICKY;}
+        // If the service is already running, reuse its socket and only update
+        // an explicitly supplied target. AUTO keeps listening for the phone beacon.
+        if(active){
+            if(!"AUTO".equals(ip)){
+                try{target=InetAddress.getByName(ip);}catch(Exception e){stopSelf();return START_NOT_STICKY;}
+            }
+            return START_STICKY;
+        }
         try{if(!"AUTO".equals(ip))target=InetAddress.getByName(ip);socket=new DatagramSocket();}catch(Exception e){stopSelf();return START_NOT_STICKY;}
-        if(active)return START_STICKY;
         active=true;
         if("AUTO".equals(ip))startDiscovery();
         Sensor gyro=sensors.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
