@@ -1,0 +1,62 @@
+name: Reusable Android APK Build
+on:
+  workflow_call:
+    inputs:
+      project_dir:
+        description: Relative directory containing settings.gradle
+        required: true
+        type: string
+      java_version:
+        type: string
+        default: '17'
+      gradle_version:
+        type: string
+        default: '8.10.2'
+      artifact_name:
+        type: string
+        default: android-debug-apk
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java_version }}
+      - name: Validate project
+        shell: bash
+        env:
+          PROJECT_DIR: ${{ inputs.project_dir }}
+        run: |
+          set -euo pipefail
+          test -f "$PROJECT_DIR/settings.gradle" -o -f "$PROJECT_DIR/settings.gradle.kts"
+          test -f "$PROJECT_DIR/app/build.gradle" -o -f "$PROJECT_DIR/app/build.gradle.kts"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ inputs.gradle_version }}
+      - name: Build debug APK
+        shell: bash
+        env:
+          PROJECT_DIR: ${{ inputs.project_dir }}
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Verify APK
+        shell: bash
+        env:
+          PROJECT_DIR: ${{ inputs.project_dir }}
+        run: |
+          set -euo pipefail
+          find "$PROJECT_DIR/app/build/outputs/apk/debug" -name '*.apk' -type f -size +0c -print
+          test -n "$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -name '*.apk' -type f -size +0c -print -quit)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.project_dir }}/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
