@@ -23,6 +23,11 @@ import java.util.concurrent.*;
 
 public class MainActivity extends Activity {
     private static final int PORT = 8766;
+    private final Object carLock = new Object();
+    private Object carInstance;
+    private Object propertyManager;
+    private static final int[] SENSOR_IDS = {557873391,557873390,557873947,557873948,557873916,557873918,557874000,557874003,557874006,557874008,561021805};
+    private static final String[] SENSOR_NAMES = {"Vehicle speed (raw)","Speed unit (raw)","Steering angle (raw)","Steering angular speed (raw)","Pinion angle (raw)","Pinion angular speed (raw)","Front left wheel (raw)","Front right wheel (raw)","Rear left wheel (raw)","Rear right wheel (raw)","Total distance (raw bytes)"};
     private volatile String approvedIp = null;
     private volatile String pendingIp = null;
     private Button approveButton;
@@ -66,7 +71,7 @@ public class MainActivity extends Activity {
     }
     private void updateStatus(String state) {
         runOnUiThread(() -> {
-            status.setText("MONJARO DIAG Recovery 2.3\\n\\n"+state+
+            status.setText("MONJARO DIAG Recovery 2.5\\n\\n"+state+
                 "\\n\\nPhone address: http://"+ip()+":"+PORT+"/"+
                 "\\n\\nApproved phone: "+(approvedIp==null?"none":approvedIp)+
                 "\\nWaiting: "+(pendingIp==null?"none":pendingIp)+
@@ -117,12 +122,15 @@ public class MainActivity extends Activity {
     private String page() {
         return "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><meta charset='utf-8'>"+
           "<style>body{background:#101820;color:#eaf1f5;font:16px sans-serif;margin:20px}textarea{width:100%;height:150px;box-sizing:border-box;background:#1b2934;color:white;padding:12px;font:15px monospace}button{padding:14px;margin:8px 4px;background:#26a6a0;border:0;border-radius:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#18232d;padding:14px}</style></head><body>"+
-          "<h2>Monjaro DIAG 2.4</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
+          "<h2>Monjaro DIAG 2.5</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
           "<textarea id='cmd' placeholder='id'></textarea><br><button onclick='paste()'>Paste</button><button onclick='run()'>Execute</button>"+
           "<button onclick='copy()'>Copy result</button><pre id='out'></pre>"+
+          "<hr><h3>Vehicle sensors (read only)</h3><button onclick='sensors()'>Read sensors</button><button onclick='toggleSensors()' id='auto'>Auto refresh: OFF</button><pre id='sensors'>Press Read sensors. Values are raw; units and scale unverified.</pre>"+
           "<script>"+
           "async function paste(){try{document.getElementById('cmd').value=await navigator.clipboard.readText()}catch(e){alert('Long-press command field and select Paste')}}"+
           "async function run(){let o=document.getElementById('out');o.textContent='Running...';try{let r=await fetch('/run',{method:'POST',headers:{'Content-Type':'text/plain'},body:document.getElementById('cmd').value});o.textContent=await r.text();document.getElementById('cmd').value='';await copy()}catch(e){o.textContent=String(e)}}"+
+          "let sensorTimer=null;async function sensors(){try{let r=await fetch(\'/sensors\');document.getElementById(\'sensors\').textContent=await r.text()}catch(e){document.getElementById(\'sensors\').textContent=String(e)}}"+
+          "function toggleSensors(){if(sensorTimer){clearInterval(sensorTimer);sensorTimer=null;document.getElementById(\'auto\').textContent=\'Auto refresh: OFF\'}else{sensors();sensorTimer=setInterval(sensors,1500);document.getElementById(\'auto\').textContent=\'Auto refresh: ON\'}}"+
           "async function copy(){let v=document.getElementById('out').textContent;try{await navigator.clipboard.writeText(v)}catch(e){let t=document.createElement('textarea');t.value=v;document.body.append(t);t.select();document.execCommand('copy');t.remove()}}</script></body></html>";
     }
     private void handle(Socket s) {
@@ -154,6 +162,7 @@ public class MainActivity extends Activity {
                 } else reply(out,403,"Connection not approved");
                 return;
             }
+            if(first[0].equals("GET")&&uri.startsWith("/sensors")){reply(out,200,readSensors());return;}
             if(first[0].equals("GET")&&uri.startsWith("/")){reply(out,200,page(),"text/html; charset=utf-8");return;}
             if(first[0].equals("POST")&&uri.startsWith("/run")) {
                 int len=0;
@@ -167,6 +176,35 @@ public class MainActivity extends Activity {
             }
             reply(out,404,"Not found");
         }catch(Exception ignored){}
+    }
+    private String readSensors() {
+        synchronized(carLock) {
+            StringBuilder result = new StringBuilder("Vehicle sensor snapshot (raw values)\\n");
+            try {
+                if(propertyManager==null) {
+                    Class<?> carClass=Class.forName("android.car.Car");
+                    java.lang.reflect.Method create=carClass.getMethod("createCar",Context.class);
+                    carInstance=create.invoke(null,this);
+                    carClass.getMethod("connect").invoke(carInstance);
+                    propertyManager=carClass.getMethod("getCarManager",String.class).invoke(carInstance,"property");
+                    if(propertyManager==null)return "CarPropertyManager unavailable";
+                }
+                java.lang.reflect.Method get=propertyManager.getClass().getMethod("getProperty",Class.class,int.class,int.class);
+                for(int i=0;i<SENSOR_IDS.length;i++) {
+                    result.append(SENSOR_NAMES[i]).append(" [").append(SENSOR_IDS[i]).append("]: ");
+                    try {
+                        Object value=get.invoke(propertyManager,SENSOR_IDS[i]==561021805?byte[].class:Integer.class,SENSOR_IDS[i],0);
+                        if(value instanceof byte[])result.append(java.util.Arrays.toString((byte[])value));
+                        else result.append(String.valueOf(value));
+                    }catch(Exception e) {
+                        Throwable t=e instanceof java.lang.reflect.InvocationTargetException?((java.lang.reflect.InvocationTargetException)e).getTargetException():e;
+                        result.append("UNAVAILABLE: ").append(t.getClass().getSimpleName()).append(": ").append(t.getMessage());
+                    }
+                    result.append('\\n');
+                }
+            }catch(Exception e){result.append("Car API error: ").append(e.toString());}
+            return result.toString();
+        }
     }
     private String execute(String cmd) {
         Process p=null;
