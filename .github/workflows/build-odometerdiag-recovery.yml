@@ -26,3 +26,8 @@ jobs:
       java_version: '17'
       gradle_version: '8.10.2'
       artifact_name: Monjaro-DIAG-Recovery-debug
+    secrets:
+      MONJARO_KEYSTORE_BASE64: ${{ secrets.MONJARO_KEYSTORE_BASE64 }}
+      MONJARO_KEYSTORE_PASSWORD: ${{ secrets.MONJARO_KEYSTORE_PASSWORD }}
+      MONJARO_KEY_ALIAS: ${{ secrets.MONJARO_KEY_ALIAS }}
+      MONJARO_KEY_PASSWORD: ${{ secrets.MONJARO_KEY_PASSWORD }}
