@@ -1,10 +1,19 @@
 name: Build Monjaro DIAG Recovery APK
 
-# Build only when explicitly requested, not on each source commit.
+# Auto-build only when the Android project changes.
+# Workflow edits, documentation and unrelated projects do not start builds.
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'odometerdiag-recovery/app/**'
+      - 'odometerdiag-recovery/build.gradle'
+      - 'odometerdiag-recovery/settings.gradle'
+      - 'odometerdiag-recovery/gradle.properties'
+      - 'odometerdiag-recovery/gradle/**'
   workflow_dispatch:
 
-# A new manual request replaces an unfinished run.
+# Only the newest pending/running build survives rapid consecutive pushes.
 concurrency:
   group: monjaro-diag-recovery-build
   cancel-in-progress: true
