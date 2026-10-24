@@ -1,11 +1,14 @@
 name: Build Monjaro DIAG Recovery APK
+
+# Build only when explicitly requested, not on each source commit.
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'odometerdiag-recovery/**'
-      - '.github/workflows/build-odometerdiag-recovery.yml'
-      - '.github/workflows/reusable-android-build.yml'
+
+# A new manual request replaces an unfinished run.
+concurrency:
+  group: monjaro-diag-recovery-build
+  cancel-in-progress: true
+
 jobs:
   build:
     uses: ./.github/workflows/reusable-android-build.yml
