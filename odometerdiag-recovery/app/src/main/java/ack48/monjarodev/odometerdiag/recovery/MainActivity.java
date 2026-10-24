@@ -102,7 +102,7 @@ public class MainActivity extends Activity {
     }
     private void updateStatus(String state) {
         runOnUiThread(() -> {
-            status.setText("MONJARO DIAG Recovery 2.6\\n\\n"+state+
+            status.setText("MONJARO DIAG Recovery 2.7\\n\\n"+state+
                 "\\n\\nPhone address: http://"+ip()+":"+PORT+"/"+
                 "\\n\\nApproved phone: "+(approvedIp==null?"none":approvedIp)+
                 "\\nWaiting: "+(pendingIp==null?"none":pendingIp)+
@@ -153,7 +153,7 @@ public class MainActivity extends Activity {
     private String page() {
         return "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><meta charset='utf-8'>"+
           "<style>body{background:#101820;color:#eaf1f5;font:16px sans-serif;margin:20px}textarea{width:100%;height:150px;box-sizing:border-box;background:#1b2934;color:white;padding:12px;font:15px monospace}button{padding:14px;margin:8px 4px;background:#26a6a0;border:0;border-radius:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#18232d;padding:14px}</style></head><body>"+
-          "<h2>Monjaro DIAG 2.6</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
+          "<h2>Monjaro DIAG 2.7</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
           "<textarea id='cmd' placeholder='id'></textarea><br><button onclick='paste()'>Paste</button><button onclick='run()'>Execute</button>"+
           "<button onclick='copy()'>Copy result</button><pre id='out'></pre>"+
           "<hr><h3>Vehicle sensors (read only)</h3><button onclick='sensors()'>Read sensors</button><button onclick='toggleSensors()' id='auto'>Auto refresh: OFF</button><pre id='sensors'>Press Read sensors. Values are raw; units and scale unverified.</pre>"+
@@ -209,33 +209,17 @@ public class MainActivity extends Activity {
         }catch(Exception ignored){}
     }
     private String readSensors() {
-        synchronized(carLock) {
-            StringBuilder result = new StringBuilder("Vehicle sensor snapshot (raw values)\\n");
-            try {
-                if(propertyManager==null) {
-                    Class<?> carClass=Class.forName("android.car.Car");
-                    java.lang.reflect.Method create=carClass.getMethod("createCar",Context.class);
-                    carInstance=create.invoke(null,this);
-                    carClass.getMethod("connect").invoke(carInstance);
-                    propertyManager=carClass.getMethod("getCarManager",String.class).invoke(carInstance,"property");
-                    if(propertyManager==null)return "CarPropertyManager unavailable";
-                }
-                java.lang.reflect.Method get=propertyManager.getClass().getMethod("getProperty",Class.class,int.class,int.class);
-                for(int i=0;i<SENSOR_IDS.length;i++) {
-                    result.append(SENSOR_NAMES[i]).append(" [").append(SENSOR_IDS[i]).append("]: ");
-                    try {
-                        Object value=get.invoke(propertyManager,SENSOR_IDS[i]==561021805?byte[].class:Integer.class,SENSOR_IDS[i],0);
-                        if(value instanceof byte[])result.append(java.util.Arrays.toString((byte[])value));
-                        else result.append(String.valueOf(value));
-                    }catch(Exception e) {
-                        Throwable t=e instanceof java.lang.reflect.InvocationTargetException?((java.lang.reflect.InvocationTargetException)e).getTargetException():e;
-                        result.append("UNAVAILABLE: ").append(t.getClass().getSimpleName()).append(": ").append(t.getMessage());
-                    }
-                    result.append('\n');
-                }
-            }catch(Exception e){result.append("Car API error: ").append(e.toString());}
-            return result.toString();
-        }
+        // The GMC KX11 Android 9 build does not expose createCar(Context).
+        // Reuse the same read-only vendor signal API as SensorStreamService.
+        String cmd = "TOOL=/vendor/bin/vehicle-hal-tool; " +
+            "if [ ! -x \"$TOOL\" ]; then echo 'vehicle-hal-tool unavailable'; exit 1; fi; " +
+            "for item in 'Vehicle speed|VehSpdIndcdVehSpdIndcd' " +
+            "'Steering angle|SteerWhlSnsrAg' 'Gear|gearlvrindcn'; do " +
+            "name=\u0024{item%%|*}; signal=\u0024{item#*|}; " +
+            "echo \"=== \u0024name [\u0024signal] ===\"; " +
+            "\"\u0024TOOL\" -p \"\u0024signal\" --get 2>&1 | head -12; " +
+            "done";
+        return "Vehicle sensor snapshot (vendor HAL; raw values)\\n" + execute(cmd);
     }
     private String execute(String cmd) {
         Process p=null;
