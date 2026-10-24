@@ -4,6 +4,9 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.os.StrictMode;
 import android.widget.TextView;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.view.View;
 import android.graphics.Typeface;
 import android.content.Context;
 import android.net.wifi.WifiManager;
@@ -14,7 +17,10 @@ import java.util.concurrent.*;
 
 public class MainActivity extends Activity {
     private static final int PORT = 8766;
-    private String token;
+    private volatile String approvedIp = null;
+    private volatile String pendingIp = null;
+    private Button approveButton;
+    private Button revokeButton;
     private volatile boolean running = true;
     private ServerSocket server;
     private final ExecutorService workers = Executors.newFixedThreadPool(3);
@@ -22,23 +28,39 @@ public class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
-        byte[] random = new byte[16];
-        new SecureRandom().nextBytes(random);
-        StringBuilder t = new StringBuilder();
-        for(byte v: random) t.append(String.format("%02x",v & 255));
-        token=t.toString();
+        LinearLayout root=new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(24,24,24,24);
         status=new TextView(this);
         status.setTextSize(19);
         status.setTypeface(Typeface.MONOSPACE);
-        status.setPadding(28,32,24,24);
-        setContentView(status);
+        root.addView(status);
+        approveButton=new Button(this);
+        approveButton.setText("ALLOW PHONE CONNECTION");
+        approveButton.setVisibility(View.GONE);
+        approveButton.setOnClickListener(v -> {
+            if(pendingIp!=null){approvedIp=pendingIp;pendingIp=null;updateStatus("Phone approved: "+approvedIp);}
+        });
+        root.addView(approveButton);
+        revokeButton=new Button(this);
+        revokeButton.setText("DISCONNECT PHONE");
+        revokeButton.setOnClickListener(v -> {
+            approvedIp=null;pendingIp=null;updateStatus("Access revoked");
+        });
+        root.addView(revokeButton);
+        setContentView(root);
         updateStatus("Starting...");
         new Thread(() -> serve()).start();
     }
     private void updateStatus(String state) {
-        runOnUiThread(() -> status.setText("MONJARO DIAG Recovery 2.1\n\n"+state+
-            "\n\nOpen on phone (same Wi-Fi/hotspot):\nhttp://"+ip()+":"+PORT+"/?token="+token+
-            "\n\nThis is a separate experimental terminal. Original v1.9 remains installed.\n\nUse only on a trusted private network."));
+        runOnUiThread(() -> {
+            status.setText("MONJARO DIAG Recovery 2.2\\n\\n"+state+
+                "\\n\\nPhone address: http://"+ip()+":"+PORT+"/"+
+                "\\n\\nApproved phone: "+(approvedIp==null?"none":approvedIp)+
+                "\\nWaiting: "+(pendingIp==null?"none":pendingIp)+
+                "\\n\\nApprove the connection on this screen. ROOT is requested by SuperSU when a command runs.");
+            approveButton.setVisibility(pendingIp==null?View.GONE:View.VISIBLE);
+        });
     }
     private String ip() {
         try {
@@ -72,12 +94,12 @@ public class MainActivity extends Activity {
     private String page() {
         return "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><meta charset='utf-8'>"+
           "<style>body{background:#101820;color:#eaf1f5;font:16px sans-serif;margin:20px}textarea{width:100%;height:150px;box-sizing:border-box;background:#1b2934;color:white;padding:12px;font:15px monospace}button{padding:14px;margin:8px 4px;background:#26a6a0;border:0;border-radius:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#18232d;padding:14px}</style></head><body>"+
-          "<h2>Monjaro DIAG 2.1</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
+          "<h2>Monjaro DIAG 2.2</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
           "<textarea id='cmd' placeholder='id'></textarea><br><button onclick='paste()'>Paste</button><button onclick='run()'>Execute</button>"+
           "<button onclick='copy()'>Copy result</button><pre id='out'></pre>"+
-          "<script>const tok=new URLSearchParams(location.search).get('token');"+
+          "<script>"+
           "async function paste(){try{document.getElementById('cmd').value=await navigator.clipboard.readText()}catch(e){alert('Long-press command field and select Paste')}}"+
-          "async function run(){let o=document.getElementById('out');o.textContent='Running...';try{let r=await fetch('/run?token='+encodeURIComponent(tok),{method:'POST',headers:{'Content-Type':'text/plain'},body:document.getElementById('cmd').value});o.textContent=await r.text()}catch(e){o.textContent=String(e)}}"+
+          "async function run(){let o=document.getElementById('out');o.textContent='Running...';try{let r=await fetch('/run',{method:'POST',headers:{'Content-Type':'text/plain'},body:document.getElementById('cmd').value});o.textContent=await r.text()}catch(e){o.textContent=String(e)}}"+
           "async function copy(){let v=document.getElementById('out').textContent;try{await navigator.clipboard.writeText(v)}catch(e){let t=document.createElement('textarea');t.value=v;document.body.append(t);t.select();document.execCommand('copy');t.remove()}}</script></body></html>";
     }
     private void handle(Socket s) {
@@ -98,10 +120,19 @@ public class MainActivity extends Activity {
             String[] first=lines[0].split(" ");
             if(first.length<2)return;
             String uri=first[1];
-            String auth="token="+token;
-            if(!uri.contains(auth)) {reply(out,403,"Forbidden");return;}
-            if(first[0].equals("GET")&&uri.startsWith("/?")){reply(out,200,page(),"text/html; charset=utf-8");return;}
-            if(first[0].equals("POST")&&uri.startsWith("/run?")) {
+            String remote=sock.getInetAddress().getHostAddress();
+            if(!sock.getInetAddress().isSiteLocalAddress() && !sock.getInetAddress().isLoopbackAddress()) {
+                reply(out,403,"Private network only");return;
+            }
+            if(!remote.equals(approvedIp)) {
+                if(!remote.equals(pendingIp)) {pendingIp=remote;updateStatus("Connection request from "+remote);}
+                if(first[0].equals("GET")) {
+                    reply(out,200,"<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><meta http-equiv='refresh' content='3'><h2>Waiting for approval on Monjaro screen...</h2>","text/html; charset=utf-8");
+                } else reply(out,403,"Connection not approved");
+                return;
+            }
+            if(first[0].equals("GET")&&uri.startsWith("/")){reply(out,200,page(),"text/html; charset=utf-8");return;}
+            if(first[0].equals("POST")&&uri.startsWith("/run")) {
                 int len=0;
                 for(String l:lines)if(l.toLowerCase().startsWith("content-length:"))len=Integer.parseInt(l.substring(l.indexOf(':')+1).trim());
                 if(len<1||len>8192){reply(out,400,"Invalid command length");return;}
