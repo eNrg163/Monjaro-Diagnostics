@@ -1,0 +1,12 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'ack48.monjarodev.gpsreference'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'ack48.monjarodev.gpsreference'
+        minSdk 23
+        targetSdk 28
+        versionCode 1
+        versionName '1.0'
+    }
+}
