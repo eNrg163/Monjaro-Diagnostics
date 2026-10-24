@@ -1,0 +1,32 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monjaro DIAG — terminal UI recovery</title>
+<style>body{font:16px system-ui;background:#101827;color:white;padding:18px;max-width:850px;margin:auto}textarea{box-sizing:border-box;width:100%;padding:12px;border-radius:8px;background:#253047;color:white;border:1px solid #617391}button{margin:8px 6px 8px 0;padding:12px;border:0;border-radius:8px;background:#2669d5;color:white}</style>
+<h2>Monjaro DIAG — recovered terminal UI</h2>
+<p>Интерфейс предназначен для включения в восстановленный локальный сервер оригинального приложения. Самостоятельно без сервера команды не выполняет.</p>
+<form id="terminalForm"><textarea id="command" rows="5" placeholder="Многострочная команда"></textarea><br>
+<button type="submit">Выполнить</button><button type="button" id="pasteRun">Вставить и выполнить</button></form>
+<div id="state"></div><textarea id="output" rows="13" readonly></textarea><br><button id="copy" type="button">Копировать ответ</button>
+<script>
+const command=document.getElementById('command'),out=document.getElementById('output'),state=document.getElementById('state');
+async function copyAnswer(){
+ try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(out.value);state.textContent='Ответ скопирован';return;}}catch(e){}
+ out.focus();out.select();try{if(document.execCommand('copy')){state.textContent='Ответ скопирован';return;}}catch(e){}
+ state.textContent='Выделен ответ: используйте меню «Копировать»';
+}
+async function run(){
+ const c=command.value;if(!c.trim())return;state.textContent='Выполняется...';
+ try{const old=out.value;const response=await fetch('/terminal',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'command='+encodeURIComponent(c)});
+ if(!response.ok)throw Error('HTTP '+response.status);
+ for(let i=0;i<30;i++){await new Promise(r=>setTimeout(r,500));const result=await fetch('/output?t='+Date.now(),{cache:'no-store'});if(!result.ok)throw Error('HTTP '+result.status);
+ const v=await result.text();if(v!==old){out.value=v;state.textContent='Готово';await copyAnswer();return;}}
+ state.textContent='Ответ не изменился — проверьте выполнение';
+ }catch(e){state.textContent='Ошибка: '+e.message;}
+}
+document.getElementById('terminalForm').addEventListener('submit',e=>{e.preventDefault();run()});
+document.getElementById('copy').onclick=copyAnswer;
+document.getElementById('pasteRun').onclick=async()=>{
+ try{if(!navigator.clipboard||!window.isSecureContext)throw Error('Clipboard API недоступен по HTTP');
+ command.value=await navigator.clipboard.readText();await run();
+ }catch(e){command.focus();state.textContent='Вставьте команду долгим нажатием в поле и нажмите «Выполнить». '+e.message;}
+};
+</script></html>
