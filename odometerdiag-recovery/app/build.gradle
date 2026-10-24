@@ -2,6 +2,21 @@ plugins { id 'com.android.application' }
 android {
     namespace 'ack48.monjarodev.odometerdiag.recovery'
     compileSdk 35
+    signingConfigs {
+        stable {
+            if (System.getenv('MONJARO_KEYSTORE_PATH')) {
+                storeFile file(System.getenv('MONJARO_KEYSTORE_PATH'))
+                storePassword System.getenv('MONJARO_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('MONJARO_KEY_ALIAS')
+                keyPassword System.getenv('MONJARO_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            if (System.getenv('MONJARO_KEYSTORE_PATH')) signingConfig signingConfigs.stable
+        }
+    }
     defaultConfig {
         applicationId 'ack48.monjarodev.odometerdiag.recovery'
         minSdk 23
