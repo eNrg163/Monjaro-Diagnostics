@@ -117,12 +117,12 @@ public class MainActivity extends Activity {
     private String page() {
         return "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><meta charset='utf-8'>"+
           "<style>body{background:#101820;color:#eaf1f5;font:16px sans-serif;margin:20px}textarea{width:100%;height:150px;box-sizing:border-box;background:#1b2934;color:white;padding:12px;font:15px monospace}button{padding:14px;margin:8px 4px;background:#26a6a0;border:0;border-radius:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#18232d;padding:14px}</style></head><body>"+
-          "<h2>Monjaro DIAG 2.3</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
+          "<h2>Monjaro DIAG 2.4</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
           "<textarea id='cmd' placeholder='id'></textarea><br><button onclick='paste()'>Paste</button><button onclick='run()'>Execute</button>"+
           "<button onclick='copy()'>Copy result</button><pre id='out'></pre>"+
           "<script>"+
           "async function paste(){try{document.getElementById('cmd').value=await navigator.clipboard.readText()}catch(e){alert('Long-press command field and select Paste')}}"+
-          "async function run(){let o=document.getElementById('out');o.textContent='Running...';try{let r=await fetch('/run',{method:'POST',headers:{'Content-Type':'text/plain'},body:document.getElementById('cmd').value});o.textContent=await r.text()}catch(e){o.textContent=String(e)}}"+
+          "async function run(){let o=document.getElementById('out');o.textContent='Running...';try{let r=await fetch('/run',{method:'POST',headers:{'Content-Type':'text/plain'},body:document.getElementById('cmd').value});o.textContent=await r.text();document.getElementById('cmd').value='';await copy()}catch(e){o.textContent=String(e)}}"+
           "async function copy(){let v=document.getElementById('out').textContent;try{await navigator.clipboard.writeText(v)}catch(e){let t=document.createElement('textarea');t.value=v;document.body.append(t);t.select();document.execCommand('copy');t.remove()}}</script></body></html>";
     }
     private void handle(Socket s) {
