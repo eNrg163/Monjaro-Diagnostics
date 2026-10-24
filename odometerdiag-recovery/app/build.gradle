@@ -6,8 +6,8 @@ android {
         applicationId 'ack48.monjarodev.odometerdiag.recovery'
         minSdk 23
         targetSdk 28
-        versionCode 23
-        versionName '2.3-recovery'
+        versionCode 24
+        versionName '2.4-recovery'
     }
 }
 
