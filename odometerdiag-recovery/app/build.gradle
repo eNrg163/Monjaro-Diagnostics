@@ -18,11 +18,11 @@ android {
         }
     }
     defaultConfig {
-        applicationId 'ack48.monjarodev.odometerdiag.recovery'
+        applicationId 'ack48.monjarodev.odometerdiag.autodiscovery'
         minSdk 23
         targetSdk 28
-        versionCode 26
-        versionName '2.6-recovery'
+        versionCode 27
+        versionName '2.7-auto-phone'
     }
 }
 
