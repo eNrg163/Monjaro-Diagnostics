@@ -92,7 +92,12 @@ public class MainActivity extends Activity {
         });
         root.addView(stopSensors);
         setContentView(root);
-        updateStatus("Starting...");
+        updateStatus("Starting server and searching for phone automatically...");
+        // Start discovery immediately. The phone receiver advertises itself over UDP;
+        // no manual phone IP entry is required.
+        Intent auto = new Intent(this, SensorStreamService.class);
+        auto.putExtra("phone_ip", "AUTO");
+        startService(auto);
         new Thread(() -> serve()).start();
     }
     private void updateStatus(String state) {
