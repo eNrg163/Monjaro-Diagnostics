@@ -15,6 +15,15 @@ on:
       artifact_name:
         type: string
         default: android-debug-apk
+    secrets:
+      MONJARO_KEYSTORE_BASE64:
+        required: false
+      MONJARO_KEYSTORE_PASSWORD:
+        required: false
+      MONJARO_KEY_ALIAS:
+        required: false
+      MONJARO_KEY_PASSWORD:
+        required: false
 jobs:
   android:
     runs-on: ubuntu-24.04
@@ -39,10 +48,22 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: ${{ inputs.gradle_version }}
+      - name: Restore stable signing key
+        shell: bash
+        env:
+          KEY_B64: ${{ secrets.MONJARO_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEY_B64" ]; then
+            echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/monjaro-release.jks"
+            echo "MONJARO_KEYSTORE_PATH=$RUNNER_TEMP/monjaro-release.jks" >> "$GITHUB_ENV"
+          fi
       - name: Build debug APK
         shell: bash
         env:
           PROJECT_DIR: ${{ inputs.project_dir }}
+          MONJARO_KEYSTORE_PASSWORD: ${{ secrets.MONJARO_KEYSTORE_PASSWORD }}
+          MONJARO_KEY_ALIAS: ${{ secrets.MONJARO_KEY_ALIAS }}
+          MONJARO_KEY_PASSWORD: ${{ secrets.MONJARO_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
