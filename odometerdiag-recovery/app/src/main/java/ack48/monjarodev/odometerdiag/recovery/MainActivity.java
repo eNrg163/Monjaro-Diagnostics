@@ -76,7 +76,7 @@ public class MainActivity extends Activity {
         startSensors.setText("START SENSOR STREAM");
         startSensors.setOnClickListener(v -> {
             String target=sensorTarget.getText().toString().trim();
-            if(!target.matches("(\\\\d{1,3}\\\\.){3}\\\\d{1,3}")){updateStatus("Invalid phone IP");return;}
+            if(!target.matches("(\\d{1,3}\\.){3}\\d{1,3}")){updateStatus("Invalid phone IP");return;}
             Intent i=new Intent(this,SensorStreamService.class);
             i.putExtra("phone_ip",target);
             startService(i);
