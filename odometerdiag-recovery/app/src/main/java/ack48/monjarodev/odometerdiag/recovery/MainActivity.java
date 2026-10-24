@@ -1,6 +1,8 @@
 package ack48.monjarodev.odometerdiag.recovery;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.widget.EditText;
 import android.os.Bundle;
 import android.os.StrictMode;
 import android.widget.TextView;
@@ -37,6 +39,7 @@ public class MainActivity extends Activity {
     private final ExecutorService workers = Executors.newFixedThreadPool(3);
     private TextView status;
     private ImageView qrView;
+    private EditText sensorTarget;
     private String qrAddress = "";
 
     @Override public void onCreate(Bundle b) {
@@ -65,6 +68,28 @@ public class MainActivity extends Activity {
             approvedIp=null;pendingIp=null;updateStatus("Access revoked");
         });
         root.addView(revokeButton);
+        sensorTarget=new EditText(this);
+        sensorTarget.setSingleLine(true);
+        sensorTarget.setHint("Phone Wi-Fi IP (e.g. 10.158.140.216)");
+        root.addView(sensorTarget);
+        Button startSensors=new Button(this);
+        startSensors.setText("START SENSOR STREAM");
+        startSensors.setOnClickListener(v -> {
+            String target=sensorTarget.getText().toString().trim();
+            if(!target.matches("(\\\\d{1,3}\\\\.){3}\\\\d{1,3}")){updateStatus("Invalid phone IP");return;}
+            Intent i=new Intent(this,SensorStreamService.class);
+            i.putExtra("phone_ip",target);
+            startService(i);
+            updateStatus("Sensor stream to "+target+":49557");
+        });
+        root.addView(startSensors);
+        Button stopSensors=new Button(this);
+        stopSensors.setText("STOP SENSOR STREAM");
+        stopSensors.setOnClickListener(v -> {
+            stopService(new Intent(this,SensorStreamService.class));
+            updateStatus("Sensor stream stopped");
+        });
+        root.addView(stopSensors);
         setContentView(root);
         updateStatus("Starting...");
         new Thread(() -> serve()).start();
