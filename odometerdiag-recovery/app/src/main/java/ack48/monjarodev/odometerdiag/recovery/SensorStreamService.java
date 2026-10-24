@@ -17,7 +17,7 @@ public class SensorStreamService extends Service implements SensorEventListener 
     private volatile boolean active;
     private volatile float gx,gy,gz,ax,ay,az;
     private volatile long gyroNs,accelNs;
-    private volatile String speed="",steer="";
+    private volatile String speed="",steer="",gear="";
     private volatile long carMs;
     private volatile long seq;
     @Override public void onCreate(){
@@ -39,6 +39,7 @@ public class SensorStreamService extends Service implements SensorEventListener 
         worker.scheduleWithFixedDelay(()->{
             speed=read("VehSpdIndcdVehSpdIndcd");
             steer=read("SteerWhlSnsrAg");
+            gear=read("gearlvrindcn");
             carMs=System.currentTimeMillis();
         },0,500,TimeUnit.MILLISECONDS);
         worker.scheduleAtFixedRate(()->send(),0,20,TimeUnit.MILLISECONDS);
@@ -68,8 +69,8 @@ public class SensorStreamService extends Service implements SensorEventListener 
         if(!active||socket==null||target==null)return;
         String msg;
         synchronized(lock){
-            msg="IMU1,"+(seq++)+","+System.currentTimeMillis()+","+SystemClock.elapsedRealtimeNanos()+","+
-                carMs+","+speed+","+steer+","+gyroNs+","+gx+","+gy+","+gz+","+
+            msg="IMU2,"+(seq++)+","+System.currentTimeMillis()+","+SystemClock.elapsedRealtimeNanos()+","+
+                carMs+","+speed+","+steer+","+gear+","+gyroNs+","+gx+","+gy+","+gz+","+
                 accelNs+","+ax+","+ay+","+az;
         }
         try{
