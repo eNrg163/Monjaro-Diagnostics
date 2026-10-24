@@ -5,6 +5,9 @@ on:
       - 'gps-reference/**'
       - '.github/workflows/build-gps-reference.yml'
   workflow_dispatch:
+concurrency:
+  group: monjaro-gps-reference-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
