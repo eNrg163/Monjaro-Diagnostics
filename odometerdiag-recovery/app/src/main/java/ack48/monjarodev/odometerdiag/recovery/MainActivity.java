@@ -102,7 +102,7 @@ public class MainActivity extends Activity {
     }
     private void updateStatus(String state) {
         runOnUiThread(() -> {
-            status.setText("MONJARO DIAG Recovery 2.7\\n\\n"+state+
+            status.setText("MONJARO DIAG Recovery 2.8\\n\\n"+state+
                 "\\n\\nPhone address: http://"+ip()+":"+PORT+"/"+
                 "\\n\\nApproved phone: "+(approvedIp==null?"none":approvedIp)+
                 "\\nWaiting: "+(pendingIp==null?"none":pendingIp)+
@@ -153,7 +153,7 @@ public class MainActivity extends Activity {
     private String page() {
         return "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><meta charset='utf-8'>"+
           "<style>body{background:#101820;color:#eaf1f5;font:16px sans-serif;margin:20px}textarea{width:100%;height:150px;box-sizing:border-box;background:#1b2934;color:white;padding:12px;font:15px monospace}button{padding:14px;margin:8px 4px;background:#26a6a0;border:0;border-radius:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#18232d;padding:14px}</style></head><body>"+
-          "<h2>Monjaro DIAG 2.7</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
+          "<h2>Monjaro DIAG 2.8</h2><p>Private-network terminal. Commands run as root when SuperSU grants access.</p>"+
           "<textarea id='cmd' placeholder='id'></textarea><br><button onclick='paste()'>Paste</button><button onclick='run()'>Execute</button>"+
           "<button onclick='copy()'>Copy result</button><pre id='out'></pre>"+
           "<hr><h3>Vehicle sensors (read only)</h3><button onclick='sensors()'>Read sensors</button><button onclick='toggleSensors()' id='auto'>Auto refresh: OFF</button><pre id='sensors'>Press Read sensors. Values are raw; units and scale unverified.</pre>"+
@@ -209,16 +209,15 @@ public class MainActivity extends Activity {
         }catch(Exception ignored){}
     }
     private String readSensors() {
-        // The GMC KX11 Android 9 build does not expose createCar(Context).
-        // Reuse the same read-only vendor signal API as SensorStreamService.
-        String cmd = "TOOL=/vendor/bin/vehicle-hal-tool; " +
-            "if [ ! -x \"$TOOL\" ]; then echo 'vehicle-hal-tool unavailable'; exit 1; fi; " +
-            "for item in 'Vehicle speed|VehSpdIndcdVehSpdIndcd' " +
-            "'Steering angle|SteerWhlSnsrAg' 'Gear|gearlvrindcn'; do " +
-            "name=\u0024{item%%|*}; signal=\u0024{item#*|}; " +
-            "echo \"=== \u0024name [\u0024signal] ===\"; " +
-            "\"\u0024TOOL\" -p \"\u0024signal\" --get 2>&1 | head -12; " +
-            "done";
+        // Query the confirmed KX11 vendor signal names directly.
+        // Avoid shell pattern expansion: mksh handles pipe-patterns differently.
+        String cmd =
+            "echo '=== Vehicle speed (VehSpdIndcdVehSpdIndcd) ==='; " +
+            "/vendor/bin/vehicle-hal-tool -p VehSpdIndcdVehSpdIndcd --get 2>&1; " +
+            "echo '=== Steering angle (SteerWhlSnsrAg) ==='; " +
+            "/vendor/bin/vehicle-hal-tool -p SteerWhlSnsrAg --get 2>&1; " +
+            "echo '=== Gear (gearlvrindcn) ==='; " +
+            "/vendor/bin/vehicle-hal-tool -p gearlvrindcn --get 2>&1";
         return "Vehicle sensor snapshot (vendor HAL; raw values)\\n" + execute(cmd);
     }
     private String execute(String cmd) {
