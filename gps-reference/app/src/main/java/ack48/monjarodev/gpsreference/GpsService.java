@@ -78,7 +78,7 @@ public class GpsService extends Service {
         sender.execute(()->{
             try {
                 byte[] bytes=payload.getBytes(StandardCharsets.UTF_8);
-                socket.send(new DatagramPacket(bytes,bytes.length,InetAddress.getLoopbackAddress(),49559));
+                socket.send(new DatagramPacket(bytes,bytes.length,InetAddress.getByName("127.0.0.1"),49559));
                 count++;
                 getSharedPreferences("gps",MODE_PRIVATE).edit().putInt("count",count)
                     .putLong("last",System.currentTimeMillis()).putString("status","Передача GPS активна").apply();
