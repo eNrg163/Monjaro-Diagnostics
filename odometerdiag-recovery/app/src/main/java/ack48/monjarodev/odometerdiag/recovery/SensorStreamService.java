@@ -31,9 +31,9 @@ public class SensorStreamService extends Service implements SensorEventListener 
         String ip=intent.getStringExtra("phone_ip");
         if(ip==null||(!"AUTO".equals(ip)&&!ip.matches("(\\d{1,3}\\.){3}\\d{1,3}"))){stopSelf();return START_NOT_STICKY;}
         try{if(!"AUTO".equals(ip))target=InetAddress.getByName(ip);socket=new DatagramSocket();}catch(Exception e){stopSelf();return START_NOT_STICKY;}
-        if("AUTO".equals(ip))startDiscovery();
         if(active)return START_STICKY;
         active=true;
+        if("AUTO".equals(ip))startDiscovery();
         Sensor gyro=sensors.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         Sensor accel=sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         if(gyro!=null)sensors.registerListener(this,gyro,20000);
