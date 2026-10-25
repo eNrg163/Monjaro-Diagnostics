@@ -6,6 +6,9 @@ import android.content.*;
 import android.content.pm.PackageManager;
 import android.os.*;
 import android.view.Gravity;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import android.widget.*;
 
 public class MainActivity extends Activity {
@@ -17,10 +20,24 @@ public class MainActivity extends Activity {
         @Override public void run() {
             android.content.SharedPreferences p=getSharedPreferences("gps",MODE_PRIVATE);
             long last=p.getLong("last",0);
-            status.setText(p.getString("status","Готово. Нажми «Старт GPS».")+
-                "\nОтправлено: "+p.getInt("count",0)+
-                "\nПоследняя отправка: "+(last==0?"нет":((System.currentTimeMillis()-last)/1000)+" сек назад")+
-                "\nUDP: 127.0.0.1:49559");
+            String state=p.getString("status","Остановлено");
+            boolean stopped="Остановлено".equals(state) || "Готово. Нажми «Старт GPS».".equals(state);
+            boolean transmitting="Передача GPS активна".equals(state);
+            boolean waiting="Ожидание GPS".equals(state);
+            String indicator=transmitting?"🟢":waiting?"🟡":"🔴";
+            String lastText;
+            if(last==0) lastText="нет";
+            else if(stopped || (!transmitting && !waiting))
+                lastText=new SimpleDateFormat("HH:mm:ss",Locale.getDefault()).format(new Date(last));
+            else {
+                long age=Math.max(0,(System.currentTimeMillis()-last)/1000);
+                lastText=age+" сек назад";
+                if(transmitting && age>5) indicator="🟡";
+            }
+            status.setText(indicator+" "+state+
+                "\\nОтправлено: "+p.getInt("count",0)+
+                "\\nПоследняя отправка: "+lastText+
+                "\\nUDP: 127.0.0.1:49559");
             handler.postDelayed(this,1000);
         }
     };
@@ -28,7 +45,7 @@ public class MainActivity extends Activity {
         super.onCreate(b);
         LinearLayout box=new LinearLayout(this);
         box.setOrientation(1);box.setPadding(28,36,28,24);box.setGravity(Gravity.CENTER_HORIZONTAL);
-        TextView title=new TextView(this);title.setText("Monjaro GPS Reference 2.0");title.setTextSize(22);
+        TextView title=new TextView(this);title.setText("Monjaro GPS Reference 2.1");title.setTextSize(22);
         status=new TextView(this);status.setTextSize(17);
         Button start=new Button(this);start.setText("Старт GPS");start.setOnClickListener(v->begin());
         Button stop=new Button(this);stop.setText("Стоп GPS");stop.setOnClickListener(v->{
